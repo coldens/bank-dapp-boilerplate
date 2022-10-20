@@ -12,12 +12,27 @@ function App() {
   const [customerAddress, setCustomerAddress] = useState(null);
   const [error, setError] = useState(null);
 
-  const contractAddress = 'YOUR_CONTRACT_ADDRESS';
+  const contractAddress = '0x76732B5D21505E510e82E313c1890491B30e0629';
   const contractABI = abi.abi;
 
   const checkIfWalletIsConnected = async () => {
     try {
-      //your code here
+      if (window.ethereum) {
+        const { ethereum } = window;
+        const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+
+        if (accounts.length !== 0) {
+          const account = accounts[0];
+          setCustomerAddress(account);
+          setIsWalletConnected(true);
+        } else {
+          setIsWalletConnected(false);
+          setCustomerAddress(null);
+        }
+      } else {
+        setError("Please install MetaMask to use this dApp!");
+        console.log("Make sure you have metamask!");
+      }
     } catch (error) {
       console.log(error);
     }
@@ -25,7 +40,18 @@ function App() {
 
   const getBankName = async () => {
     try {
-      //your code here
+      if (window.ethereum) {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        const bankContract = new ethers.Contract(contractAddress, contractABI, signer);
+
+        let bankName = await bankContract.bankName();
+        bankName = utils.parseBytes32String(bankName);
+        setCurrentBankName(bankName);
+      } else {
+        setError("Please install MetaMask to use this dApp!");
+        console.log("Make sure you have metamask!");
+      }
     } catch (error) {
       console.log(error);
     }
@@ -34,7 +60,24 @@ function App() {
   const setBankNameHandler = async (event) => {
     event.preventDefault();
     try {
-      //your code here
+      if (window.ethereum) {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        const bankContract = new ethers.Contract(contractAddress, contractABI, signer);
+
+        const txn = await bankContract.setBankName(
+          utils.formatBytes32String(inputValue.bankName)
+        );
+
+        console.log('Setting bank name...');
+        await txn.wait();
+
+        console.log('Bank name set!', txn.hash);
+        await getBankName();
+      } else {
+        setError("Please install MetaMask to use this dApp!");
+        console.log("Make sure you have metamask!");
+      }
     } catch (error) {
       console.log(error);
     }
@@ -42,7 +85,23 @@ function App() {
 
   const getbankOwnerHandler = async () => {
     try {
-      //your code here
+      if (window.ethereum) {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        const bankContract = new ethers.Contract(contractAddress, contractABI, signer);
+
+        let owner = await bankContract.bankOwner();
+        setBankOwnerAddress(owner);
+
+        const [account] = await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+        if (owner.toLowerCase() === account.toLowerCase()) {
+          setIsBankerOwner(true);
+        }
+      } else {
+        setError("Please install MetaMask to use this dApp!");
+        console.log("Make sure you have metamask!");
+      }
     } catch (error) {
       console.log(error);
     }
@@ -50,7 +109,18 @@ function App() {
 
   const customerBalanceHandler = async () => {
     try {
-      //your code here
+      if (window.ethereum) {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        const bankContract = new ethers.Contract(contractAddress, contractABI, signer);
+
+        const balance = await bankContract.getCustomerBalance();
+        setCustomerTotalBalance(utils.formatEther(balance));
+        console.log('Customer balance: ', balance);
+      } else {
+        setError("Please install MetaMask to use this dApp!");
+        console.log("Make sure you have metamask!");
+      }
     } catch (error) {
       console.log(error);
     }
@@ -62,7 +132,25 @@ function App() {
 
   const deposityMoneyHandler = async (event) => {
     try {
-      //your code here
+      event.preventDefault();
+      if (window.ethereum) {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        const bankContract = new ethers.Contract(contractAddress, contractABI, signer);
+
+        const txn = await bankContract.depositMoney({
+          value: ethers.utils.parseEther(inputValue.deposit)
+        });
+
+        console.log('Depositing money...');
+        await txn.wait();
+
+        console.log('Money deposited!', txn.hash);
+        await customerBalanceHandler();
+      } else {
+        setError("Please install MetaMask to use this dApp!");
+        console.log("Make sure you have metamask!");
+      }
     } catch (error) {
       console.log(error);
     }
@@ -70,7 +158,30 @@ function App() {
 
   const withDrawMoneyHandler = async (event) => {
     try {
-      //your code here
+      event.preventDefault();
+
+      if (window.ethereum) {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        const bankContract = new ethers.Contract(contractAddress, contractABI, signer);
+
+        let myAddress = await signer.getAddress();
+        console.log('provider signer...', myAddress);
+
+        const txn = await bankContract.withDrawMoney(
+          myAddress,
+          ethers.utils.parseEther(inputValue.withdraw)
+        );
+
+        console.log('withdrawing money...');
+        await txn.wait();
+        console.log('Money with drew... done...', txn.hash);
+
+        await customerBalanceHandler();
+      } else {
+        setError("Please install MetaMask to use this dApp!");
+        console.log("Make sure you have metamask!");
+      }
     } catch (error) {
       console.log(error);
     }
